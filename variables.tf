@@ -9,3 +9,15 @@ variable "vpc_id" {
   type        = string
   default     = ""
 }
+
+variable "aws_access_key_id" {
+  description = "AWS access key id."
+  type        = string
+  default     = ""
+}
+
+variable "aws_secret_access_key" {
+  description = "AWS secret access key."
+  type        = string
+  default     = ""
+}

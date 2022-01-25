@@ -8,10 +8,11 @@ module "consul_server" {
   cluster_name  = "${var.cluster_name}"
   ami_id = "ami-0d527b8c289b4af7f"
   instance_type = "t2.micro"
+  instance_name = "consul-server"
 
-  min_size         = 1
-  max_size         = 1
-  desired_capacity = 1
+  min_size         = 3
+  max_size         = 3
+  desired_capacity = 3
 
   http_port = 8500
 
@@ -39,16 +40,19 @@ module "consul_server" {
   //     propagate_at_launch = true
   //   },
   // ]
+
+  retry_join = {
+    tag_key = "ConsulAutoJoin"
+    tag_value = "auto-join"
+  }
 }
 
 data "template_file" "user_data_consul_server" {
   template = file("${path.module}/cloud-init/consul-server.cfg")
   vars = {
-    NOMAD_SERVER_COUNT = 1,
-    NOMAD_SERVER_JOIN_IP = "",
-    NOMAD_SERVER_ENABLE_CLIENT = "false",
-    NOMAD_DRIVER_RAW_EXEC = "false",
+    AWS_ACCESS_KEY_ID = var.aws_access_key_id
+    AWS_SECRET_ACCESS_KEY = var.aws_secret_access_key
+    CONSUL_SERVER_COUNT = 3
     DATACENTER_NAME = "DC1"
-    NODE_IP = ""
   }
 }

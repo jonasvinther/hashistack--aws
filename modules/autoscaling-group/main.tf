@@ -18,7 +18,6 @@ resource "aws_launch_template" "launch_template" {
 
   key_name = "ssh-key"
   user_data = "${base64encode(var.user_data)}"
-  // user_data = "${base64encode(data.template_file.user_data_nomad_server.rendered)}"
 
   network_interfaces {
     associate_public_ip_address = true
@@ -35,6 +34,18 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   launch_template {
     id      = aws_launch_template.launch_template.id
     version = "$Latest"
+  }
+
+  tag {
+    key                 = var.retry_join.tag_key
+    value               = var.retry_join.tag_value
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Name"
+    value               = var.instance_name
+    propagate_at_launch = true
   }
 }
 
@@ -63,11 +74,6 @@ resource "aws_autoscaling_group" "autoscaling_group" {
 //     Name = "ExampleAppServerInstance"
 //   }
 // }
-
-resource "aws_key_pair" "ssh-key" {
-  key_name   = "ssh-key"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCcTTa6B//h8YAFW+LQjf0k7q8P2mqGUpokVD5yxIgjCXQhUEeJ5bA0N5zYa4p+HSutMFFnsjzOEWw4FttPdr/hAWo6mcDnq4T5k74dnTYmYsfCcHmXmJt9B2QDZe+AY1OS3W8GyHCVyrfryc/2YXXlK+qV4mX+S6HQKHnp0WjEdr26quhM95JAdsvfW6c8oQxoUvwT2yp5cbo5JEi4t25epYJSgLx9UpUUwG8Zph6tVqCrSH2zFhBgD44yAh1SpdTmG1hQaKneBdkwrxQ7qqToas5u+nPnbCC2COpE8/zd8UMRwAlT4UY2TgaBGpPE2HqcHS3KxYv/RzeCAPU+hoX0KAWwIujAzEG+eifXWLrVavLj89lN/EA/iTN9V2wzvFjO7FvAAXDVwJk6dFSg9Ewo4L2faP+FBGeadpCTUew3VaeWRP3X9OAzKeGaTb6yq3ZWpRC5wD4NIq8wYMudXjFV7sB8eD8mbBGhqOmKX0aNMMInDVeh0qx0SYJTrtXkG+yu9q37/VB/Whojy0IPULJHkXzi4e4yphxP/vLXK1sPg4EE2C1B0shyeohz0d0lCtlyr6BJeKU6QE854OAum82hbnq8mhvXB77zyJhlRVo0U6JLArjAOye7kyouNAqVM+OtkbN7rcO/tuqlxqcs0cmOlPoyEwbIGPkQz/G8ymEQTw== jv@praqma.net"
-}
 
 // output "instance_ip" {
 //   description = "The public ip for ssh access"
@@ -114,6 +120,27 @@ resource "aws_security_group_rule" "allow_http_inbound" {
   security_group_id = aws_security_group.cluster_security_group.id
 }
 
+resource "aws_security_group_rule" "allow_rpc_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.rpc_port
+  to_port     = var.rpc_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_tcp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.serf_port
+  to_port     = var.serf_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
 
 resource "aws_security_group_rule" "allow_all_outbound" {
   type        = "egress"
@@ -121,6 +148,347 @@ resource "aws_security_group_rule" "allow_all_outbound" {
   to_port     = 0
   protocol    = "-1"
   cidr_blocks = var.allow_outbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# CREATE THE SECURITY GROUP RULES THAT CONTROL WHAT TRAFFIC CAN GO IN AND OUT OF A CONSUL CLUSTER
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_security_group_rule" "allow_server_rpc_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.server_rpc_port
+  to_port     = var.server_rpc_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_cli_rpc_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.cli_rpc_port
+  to_port     = var.cli_rpc_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_wan_tcp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.serf_wan_port
+  to_port     = var.serf_wan_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_wan_udp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.serf_wan_port
+  to_port     = var.serf_wan_port
+  protocol    = "udp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+// resource "aws_security_group_rule" "allow_http_api_inbound" {
+//   count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+//   type        = "ingress"
+//   from_port   = var.http_api_port
+//   to_port     = var.http_api_port
+//   protocol    = "tcp"
+//   cidr_blocks = var.allowed_inbound_cidr_blocks
+
+//   security_group_id = aws_security_group.cluster_security_group.id
+// }
+
+resource "aws_security_group_rule" "allow_https_api_inbound" {
+  count       = var.enable_https_port && length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.https_api_port
+  to_port     = var.https_api_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_dns_tcp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.dns_port
+  to_port     = var.dns_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_dns_udp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.dns_port
+  to_port     = var.dns_port
+  protocol    = "udp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_server_rpc_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.server_rpc_port
+  to_port                  = var.server_rpc_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_cli_rpc_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.cli_rpc_port
+  to_port                  = var.cli_rpc_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_wan_tcp_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.serf_wan_port
+  to_port                  = var.serf_wan_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_wan_udp_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.serf_wan_port
+  to_port                  = var.serf_wan_port
+  protocol                 = "udp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_http_api_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.http_api_port
+  to_port                  = var.http_api_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_https_api_inbound_from_security_group_ids" {
+  count                    = var.enable_https_port ? var.allowed_inbound_security_group_count : 0
+  type                     = "ingress"
+  from_port                = var.https_api_port
+  to_port                  = var.https_api_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_dns_tcp_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.dns_port
+  to_port                  = var.dns_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_dns_udp_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.dns_port
+  to_port                  = var.dns_port
+  protocol                 = "udp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+# Similar to the *_inbound_from_security_group_ids rules, allow inbound from ourself
+
+resource "aws_security_group_rule" "allow_server_rpc_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.server_rpc_port
+  to_port   = var.server_rpc_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_cli_rpc_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.cli_rpc_port
+  to_port   = var.cli_rpc_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_wan_tcp_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.serf_wan_port
+  to_port   = var.serf_wan_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_wan_udp_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.serf_wan_port
+  to_port   = var.serf_wan_port
+  protocol  = "udp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_http_api_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.http_api_port
+  to_port   = var.http_api_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_https_api_inbound_from_self" {
+  count     = var.enable_https_port ? 1 : 0
+  type      = "ingress"
+  from_port = var.https_api_port
+  to_port   = var.https_api_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_dns_tcp_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.dns_port
+  to_port   = var.dns_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_dns_udp_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.dns_port
+  to_port   = var.dns_port
+  protocol  = "udp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+
+
+
+
+
+## ---------------------------------------------------------------------------------------------------------------------
+# CREATE THE SECURITY GROUP RULES THAT CONTROL WHAT TRAFFIC CAN GO IN AND OUT OF A CONSUL AGENT CLUSTER
+# ---------------------------------------------------------------------------------------------------------------------
+
+resource "aws_security_group_rule" "allow_serf_lan_tcp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.serf_lan_port
+  to_port     = var.serf_lan_port
+  protocol    = "tcp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_lan_udp_inbound" {
+  count       = length(var.allowed_inbound_cidr_blocks) >= 1 ? 1 : 0
+  type        = "ingress"
+  from_port   = var.serf_lan_port
+  to_port     = var.serf_lan_port
+  protocol    = "udp"
+  cidr_blocks = var.allowed_inbound_cidr_blocks
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_lan_tcp_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.serf_lan_port
+  to_port                  = var.serf_lan_port
+  protocol                 = "tcp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_lan_udp_inbound_from_security_group_ids" {
+  count                    = var.allowed_inbound_security_group_count
+  type                     = "ingress"
+  from_port                = var.serf_lan_port
+  to_port                  = var.serf_lan_port
+  protocol                 = "udp"
+  source_security_group_id = element(var.allowed_inbound_security_group_ids, count.index)
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+# Similar to the *_inbound_from_security_group_ids rules, allow inbound from ourself
+
+resource "aws_security_group_rule" "allow_serf_lan_tcp_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.serf_lan_port
+  to_port   = var.serf_lan_port
+  protocol  = "tcp"
+  self      = true
+
+  security_group_id = aws_security_group.cluster_security_group.id
+}
+
+resource "aws_security_group_rule" "allow_serf_lan_udp_inbound_from_self" {
+  type      = "ingress"
+  from_port = var.serf_lan_port
+  to_port   = var.serf_lan_port
+  protocol  = "udp"
+  self      = true
 
   security_group_id = aws_security_group.cluster_security_group.id
 }

@@ -15,6 +15,16 @@ variable "subnet_ids" {
   default     = null
 }
 
+variable "retry_join" {
+  type = map(string)
+
+  default = {
+    provider  = "aws"
+    tag_key   = ""
+    tag_value = ""
+  }
+}
+
 variable "aws_access_key_id" {
   description = "AWS access key id."
   type        = string
