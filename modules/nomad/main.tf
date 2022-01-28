@@ -112,6 +112,7 @@ data "template_file" "user_data_nomad_client" {
     AWS_ACCESS_KEY_ID = var.aws_access_key_id
     AWS_SECRET_ACCESS_KEY = var.aws_secret_access_key
     NOMAD_DRIVER_RAW_EXEC = "true"
+    NOMAD_DRIVER_DOCKER = "true"
     DATACENTER_NAME = "DC1"
   }
 }
