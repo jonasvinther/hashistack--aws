@@ -31,7 +31,7 @@ module "nomad" {
 
 resource "aws_key_pair" "ssh-key" {
   key_name   = "ssh-key"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCcTTa6B//h8YAFW+LQjf0k7q8P2mqGUpokVD5yxIgjCXQhUEeJ5bA0N5zYa4p+HSutMFFnsjzOEWw4FttPdr/hAWo6mcDnq4T5k74dnTYmYsfCcHmXmJt9B2QDZe+AY1OS3W8GyHCVyrfryc/2YXXlK+qV4mX+S6HQKHnp0WjEdr26quhM95JAdsvfW6c8oQxoUvwT2yp5cbo5JEi4t25epYJSgLx9UpUUwG8Zph6tVqCrSH2zFhBgD44yAh1SpdTmG1hQaKneBdkwrxQ7qqToas5u+nPnbCC2COpE8/zd8UMRwAlT4UY2TgaBGpPE2HqcHS3KxYv/RzeCAPU+hoX0KAWwIujAzEG+eifXWLrVavLj89lN/EA/iTN9V2wzvFjO7FvAAXDVwJk6dFSg9Ewo4L2faP+FBGeadpCTUew3VaeWRP3X9OAzKeGaTb6yq3ZWpRC5wD4NIq8wYMudXjFV7sB8eD8mbBGhqOmKX0aNMMInDVeh0qx0SYJTrtXkG+yu9q37/VB/Whojy0IPULJHkXzi4e4yphxP/vLXK1sPg4EE2C1B0shyeohz0d0lCtlyr6BJeKU6QE854OAum82hbnq8mhvXB77zyJhlRVo0U6JLArjAOye7kyouNAqVM+OtkbN7rcO/tuqlxqcs0cmOlPoyEwbIGPkQz/G8ymEQTw== jv@praqma.net"
+  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJLa0W10AALxaTJ8CnYg9rm/qf2qMCezjbcd2YV9+/67 jrvinther@gmail.com"
 }
 
 // module "servers" {

@@ -36,6 +36,10 @@ resource "aws_autoscaling_group" "autoscaling_group" {
     version = "$Latest"
   }
 
+  lifecycle {
+    ignore_changes = [load_balancers, target_group_arns]
+  }
+
   tag {
     key                 = var.retry_join.tag_key
     value               = var.retry_join.tag_value
@@ -79,6 +83,31 @@ resource "aws_autoscaling_group" "autoscaling_group" {
 //   description = "The public ip for ssh access"
 //   value       = aws_instance.app_server.public_ip
 // }
+
+# resource "aws_security_group" "lb_sg" {
+#   name_prefix = var.cluster_name
+#   description = "Security group for the ${var.cluster_name} nomad clients"
+#   vpc_id      = var.vpc_id
+
+#   # aws_launch_configuration.launch_configuration in this module sets create_before_destroy to true, which means
+#   # everything it depends on, including this resource, must set it as well, or you'll get cyclic dependency errors
+#   # when you try to do a terraform destroy.
+#   // lifecycle {
+#   //   create_before_destroy = true
+#   // }
+# }
+
+# resource "aws_security_group_rule" "allow_lb_http" {
+#   count       = length(var.allowed_ssh_cidr_blocks) > 0 ? 1 : 0
+#   type        = "ingress"
+#   from_port   = 80
+#   to_port     = 80
+#   protocol    = "tcp"
+#   cidr_blocks = var.allowed_ssh_cidr_blocks
+
+#   security_group_id = aws_security_group.lb_sg.id
+# }
+
 
 
 // # ---------------------------------------------------------------------------------------------------------------------
