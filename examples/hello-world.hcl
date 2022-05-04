@@ -9,6 +9,7 @@ job "hello_world" {
     count = 2
 
     network {
+      mode = "bridge"
       port "http" {
         to = 8000
       }
@@ -18,9 +19,9 @@ job "hello_world" {
     service {
       name = "webapp"
       tags = [
-  "traefik.enable=true",
-  "traefik.http.routers.webapp.rule=Host(`hello-world.crunk.dk`)"
-]
+        "traefik.enable=true",
+        "traefik.http.routers.webapp.rule=Host(`hello-world.crunk.dk`)"
+      ]
       port = "http"
 
       check {

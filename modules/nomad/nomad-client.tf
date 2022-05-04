@@ -3,7 +3,7 @@ module "nomad_client" {
 
   cluster_name  = "${var.cluster_name}"
   ami_id = "ami-0d527b8c289b4af7f"
-  instance_type = "t2.micro"
+  instance_type = "t2.medium"
   instance_name = "nomad-client"
 
   min_size         = 2
